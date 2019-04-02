@@ -5,7 +5,7 @@ import numpy as np
 import random
 import math
 import cv2
-import parameter as params
+from unuse import parameter as params
 
 
 class DataProcess(object):

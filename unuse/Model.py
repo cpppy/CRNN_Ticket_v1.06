@@ -5,8 +5,7 @@ from keras.layers import Reshape, Lambda, BatchNormalization
 from keras.layers.merge import add, concatenate
 from keras.models import Model
 from keras.layers.recurrent import LSTM
-import parameter as params
-import tensorflow as tf
+from unuse import parameter as params
 
 K.set_learning_phase(0)
 

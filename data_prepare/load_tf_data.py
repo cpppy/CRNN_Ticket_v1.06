@@ -4,21 +4,42 @@ Implement some utils used to convert image and it's corresponding label into tfr
 import numpy as np
 import tensorflow as tf
 import os
-import os.path as ops
+import tensorflow as tf
 import re
+from data_prepare import char_dict
+
+def sparse_tensor_to_str(spares_tensor: tf.SparseTensor):
+    """
+    :param spares_tensor:
+    :return: a str
+    """
+    indices = spares_tensor.indices
+    values = spares_tensor.values
+    # values = np.array([self.__ord_2_index_map[str(tmp)] for tmp in values])
+    dense_shape = spares_tensor.dense_shape
+
+    number_lists = np.zeros(dense_shape, dtype=values.dtype)
+    str_lists = []
+    res = []
+    for i, index in enumerate(indices):
+        number_lists[index[0], index[1]] = values[i]
+    for number_list in number_lists:
+        str_lists.append([char_dict.int_to_char[val] for val in number_list])
+    for str_list in str_lists:
+        res.append(''.join(c for c in str_list if c != '*'))
+    return res
 
 
 
 def read_features(tfrecords_dir, num_epochs, flag):
     """
-
     :param tfrecords_dir:
     :param num_epochs:
     :param flag: 'Train', 'Test', 'Validation'
     :return:
     """
 
-    assert ops.exists(tfrecords_dir)
+    assert os.path.exists(tfrecords_dir)
 
     if not isinstance(flag, str):
         raise ValueError('flag should be a str in [\'Train\', \'Test\', \'Val\']')
@@ -32,7 +53,7 @@ def read_features(tfrecords_dir, num_epochs, flag):
     else:
         re_patten = r'^val_feature_\d{0,15}_\d{0,15}\.tfrecords\Z'
 
-    tfrecords_list = [ops.join(tfrecords_dir, tmp) for tmp in os.listdir(tfrecords_dir) if re.match(re_patten, tmp)]
+    tfrecords_list = [os.path.join(tfrecords_dir, tmp) for tmp in os.listdir(tfrecords_dir) if re.match(re_patten, tmp)]
 
     print('tfrecords_list: ', tfrecords_list)
 
@@ -44,13 +65,13 @@ def read_features(tfrecords_dir, num_epochs, flag):
                                        features={
                                            'images': tf.FixedLenFeature((), tf.string),
                                            'imagenames': tf.FixedLenFeature([1], tf.string),
-                                           # 'labels': tf.VarLenFeature(tf.int64),
-                                           'labels': tf.FixedLenFeature([], tf.int64),
+                                           'labels': tf.VarLenFeature(tf.int64),
+                                           # 'labels': tf.FixedLenFeature([], tf.int64),
                                        })
     image = tf.decode_raw(features['images'], tf.uint8)
-    images = tf.reshape(image, [32, 32])
+    images = tf.reshape(image, [256, 32])
     labels = features['labels']
-    labels = tf.one_hot(indices=labels, depth=10) #config.cfg.TRAIN.CLASSES_NUMS)
+    # labels = tf.one_hot(indices=labels, depth=10) #config.cfg.TRAIN.CLASSES_NUMS)
     labels = tf.cast(labels, tf.int32)
     # labels = tf.keras.utils.to_categorical(labels, num_classes=10)
     imagenames = features['imagenames']
@@ -59,7 +80,7 @@ def read_features(tfrecords_dir, num_epochs, flag):
 
 if __name__ == '__main__':
 
-    imgs, labels, img_names = read_features('/data/data/mnist_tfrecords',
+    imgs, labels, img_names = read_features('/data/data/crnn_tfrecords',
                                             num_epochs=None,
                                             flag='Train')
 
@@ -79,12 +100,11 @@ if __name__ == '__main__':
         print(type(labels_val))
         print(labels_val)
         print(img_names_val)
-        # print('gt_labels_len: ', len(gt_labels))
-        # for index, gt_label in enumerate(gt_labels):
-        #     name = img_names_val[index][0].decode('utf-8')
-        #     name = ops.split(name)[1]
-        #     name = name.split('_')[-2]
-        #     print('{:s} --- {:s}'.format(gt_label, name))
+        scene_labels = sparse_tensor_to_str(labels_val)
+        print('scene_labels_len: ', len(scene_labels))
+        for index, scene_label in enumerate(scene_labels):
+            img_name = img_names_val[index][0].decode('utf-8')
+            print('{:s} --- {:s}'.format(img_name, scene_label))
 
         coord.request_stop()
         coord.join(threads=threads)

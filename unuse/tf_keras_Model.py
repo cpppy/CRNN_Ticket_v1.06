@@ -1,14 +1,24 @@
 import tensorflow as tf
-import cv2
-import parameter as params
+from unuse import parameter as params
+
 
 # # Loss and train functions, network architecture
 def ctc_lambda_func(args):
+
     y_pred, labels, input_length, label_length = args
+    labels = tf.sparse_tensor_to_dense(labels)
     return tf.keras.backend.ctc_batch_cost(labels, y_pred, input_length, label_length)
 
-def get_Model(training):
 
+def tf_ctc_loss_calc(args):
+    y_pred, labels, label_length = args
+    loss = tf.nn.ctc_loss(labels=labels,
+                          inputs=y_pred,
+                          sequence_length=label_length)
+    return loss
+
+
+def get_Model(training):
     inputs = tf.keras.Input(shape=(params.img_w, params.img_h, 1), name='the_inputs')
 
     # Convolution layer (VGG)
@@ -73,9 +83,20 @@ def get_Model(training):
         lstm2_merged)  # (None, 32, 63)
     y_pred = tf.keras.layers.Activation('softmax', name='softmax')(inner)
 
-    labels = tf.keras.layers.Input(name='the_labels', shape=[params.max_text_len], dtype='float32')  # (None ,8)
-    input_length = tf.keras.layers.Input(name='input_length', shape=[1], dtype='int64')  # (None, 1)
-    label_length = tf.keras.layers.Input(name='label_length', shape=[1], dtype='int64')  # (None, 1)
+    batch_size = tf.shape(inputs)[0]
+
+    # labels = tf.keras.layers.Input(name='the_labels', shape=[params.max_text_len], dtype='float32')  # (None ,8)
+    labels = tf.keras.layers.Input(name='the_labels', shape=(batch_size,), sparse=True, dtype=tf.int32)
+    # input_length & label_length
+    # input_length = tf.keras.layers.Input(name='input_length', shape=[1], dtype='int64')  # (None, 1)
+    # label_length = tf.keras.layers.Input(name='label_length', shape=[1], dtype='int64')  # (None, 1)
+
+    # input_length = np.ones((batch_size, 1)) * (self.img_w // self.downsample_factor)  # (bs, 1)*32
+    # label_length = np.zeros((self.batch_size, 1))  # (bs)*0
+
+    input_length = tf.fill(dims=(batch_size, ), value=tf.cast(32, dtype=tf.int64))
+    # label_length = tf.zeros(shape=(batch_size,), dtype=tf.int32)
+    label_length = tf.fill(dims=(batch_size,), value=tf.cast(32, dtype=tf.int64))
 
     # Keras doesn't currently support loss funcs with extra parameters
     # so CTC loss is implemented in a lambda layer
@@ -83,15 +104,19 @@ def get_Model(training):
     loss_out = tf.keras.layers.Lambda(ctc_lambda_func, output_shape=(1,), name='ctc')(
         [y_pred, labels, input_length, label_length])  # (None, 1)
     # loss_out = tf.keras.backend.ctc_batch_cost(labels, y_pred, input_length, label_length)
+    # loss_out = tf.reduce_mean(tf.nn.ctc_loss(labels=labels,
+    #                                          inputs=y_pred,
+    #                                          sequence_length=label_length))
+    # loss_out = tf.keras.layers.Lambda(tf_ctc_loss_calc, output_shape=(1, ), name='ctc')(
+    #     [y_pred, labels, label_length]
+    # )
 
     if training:
-        return tf.keras.Model(inputs=[inputs, labels, input_length, label_length], outputs=loss_out)
+        return tf.keras.Model(inputs=[inputs, labels], outputs=loss_out)
     else:
         return tf.keras.Model(inputs=[inputs], outputs=y_pred)
 
 
-if __name__=='__main__':
-
+if __name__ == '__main__':
     crnn_model = get_Model(training=True)
     print(crnn_model.summary())
-

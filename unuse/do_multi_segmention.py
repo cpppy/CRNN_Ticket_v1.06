@@ -1,4 +1,4 @@
-import segmentation_task
+from unuse import segmentation_task
 import os
 import multiprocessing
 import json

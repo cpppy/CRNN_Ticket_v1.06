@@ -1,7 +1,7 @@
 import cv2
 import os, random
 import numpy as np
-import parameter as params
+from unuse import parameter as params
 import json
 from keras.applications.imagenet_utils import preprocess_input
 

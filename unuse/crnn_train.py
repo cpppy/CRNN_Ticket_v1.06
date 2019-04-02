@@ -1,14 +1,15 @@
-from keras import backend as K
-from keras.optimizers import Adadelta
-from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
-from data_process import DataProcess
-from idnum_data_generator import DataGenerator
-import Model as crnn_model
-import parameter as params
+# from keras import backend as K
+# from keras.optimizers import Adadelta
+# from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
+from unuse.data_process import DataProcess
+from unuse.data_generator import DataGenerator
+# import Model as crnn_model
+from unuse import tf_keras_Model as crnn_model, parameter as params
 import os
+import tensorflow as tf
 
 
-#K.set_learning_phase(0)
+# K.set_learning_phase(0)
 
 
 def data_preprocess():
@@ -23,24 +24,6 @@ def data_preprocess():
         print("train_data not exist, do processing...")
         data_proc = DataProcess()
         data_proc.data_preprocess()
-        #data_proc.generate_key()
-        #data_proc.random_get_val()
-
-
-def find_latest_weights(weight_path):
-    file_list = []
-    for root, dirs, files in os.walk(weight_path):
-        for file_name in files:
-            # print("find file: ", file_name)
-            if 'CRNN' in file_name:
-                file_list.append(file_name)
-    if len(file_list) == 0:
-        print("weights file list is empty.")
-        return None
-    else:
-        file_list.sort(reverse=True)
-        # print("latest weights file: ", file_list[0])
-        return file_list[0]
 
 
 def load_train_and_val_data():
@@ -87,40 +70,36 @@ def train_model():
     print('params.num_classes: ', params.num_classes)
 
     model = crnn_model.get_Model(training=True)
-    # load weights
-    weights_path = "/data/CRNN_draft/previous_weights"
     try:
-        latest_weights = find_latest_weights(weights_path)
-        # TODO
-        latest_weights = '/data/output/CRNN--10--0.007.h5'
+        latest_weights = params.load_weights_path
+        print("find latest_weights exists.", latest_weights)
         if latest_weights != None:
-            print("find latest_weights exists.", latest_weights)
-            model.load_weights(os.path.join(weights_path, latest_weights))
+            model.load_weights(latest_weights)
             print("...load exist weights: ", latest_weights)
         else:
             print("history weights file not exist, train a new one.")
     except Exception as e:
-        print('warn: ',str(e))
+        print('warn: ', str(e))
         print("historical weights data can not be used, train a new one...")
         pass
 
     train_data_gen, val_data_gen, train_sample_num, val_sample_num = load_train_and_val_data()
 
-    ada = Adadelta()
+    ada = tf.keras.optimizers.Adadelta()
 
-    early_stop = EarlyStopping(monitor='val_loss',
-                               min_delta=0.001,
-                               patience=8,
-                               mode='min',
-                               verbose=1)
-    checkpoint = ModelCheckpoint(filepath='/data/output/idnum_CRNN--{epoch:02d}--{val_loss:.3f}.h5',
-                                 monitor='val_loss',
-                                 save_best_only=False,
-                                 save_weights_only=True,
-                                 verbose=1,
-                                 mode='min',
-                                 period=1)
-    tensor_board = TensorBoard(log_dir='/data/output')
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss',
+                                                  min_delta=0.001,
+                                                  patience=8,
+                                                  mode='min',
+                                                  verbose=1)
+    checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath='/data/output/CRNN--{epoch:02d}--{val_loss:.3f}.h5',
+                                                    monitor='val_loss',
+                                                    save_best_only=False,
+                                                    save_weights_only=True,
+                                                    verbose=1,
+                                                    mode='min',
+                                                    period=1)
+    tensor_board = tf.keras.callbacks.TensorBoard(log_dir='/data/output')
     # the loss calc occurs elsewhere, so use a dummy lambda func for the loss
     model.compile(loss={'ctc': lambda y_true, y_pred: y_pred}, optimizer=ada)
 
@@ -128,17 +107,19 @@ def train_model():
 
     batch_size = params.batch_size
     epoch_num = params.epoch_num
+    val_batch_size = params.val_batch_size
+
 
     model.fit_generator(generator=train_data_gen,
                         steps_per_epoch=train_sample_num // batch_size,
                         epochs=epoch_num,
-                        callbacks=[checkpoint,
-                                   early_stop,
-                                   tensor_board],
+                        callbacks=None,
+                        verbose=1,
                         validation_data=val_data_gen,
-                        validation_steps=val_sample_num // batch_size)
+                        validation_steps=val_sample_num // val_batch_size)
 
     model.save_weights("/data/output/manual_single_CRNN_weights_save.h5")
+
 
 if __name__ == "__main__":
     data_preprocess()

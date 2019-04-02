@@ -1,12 +1,10 @@
 import itertools
-import os
 
 import cv2
 import numpy as np
 from keras import backend as K
 
-import parameter as params
-import Model as crnn_model
+from unuse import Model as crnn_model, parameter as params
 
 K.set_learning_phase(0)
 

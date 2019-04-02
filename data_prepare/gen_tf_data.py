@@ -6,21 +6,16 @@ import cv2
 import math
 import numpy as np
 
-batch_size = 16
-save_dir = '/data/data/crnn_tfrecords'
-if not os.path.exists(save_dir):
-    os.mkdir(save_dir)
-
-# load char_dict
-key_path = '/data/CRNN_Ticket_v1.06/key/keys.txt'
-char_to_int={}
-int_to_char={}
-with open(key_path, 'r', encoding='utf-8') as key_f:
-    chars = key_f.read()
-    for idx, char in enumerate(chars):
-        char_to_int[char] = idx
-        int_to_char[idx] = char
-    num_classes = len(chars) + 1
+# # load char_dict
+# key_path = '/data/CRNN_Ticket_v1.06/key/keys.txt'
+# char_to_int = {}
+# int_to_char = {}
+# with open(key_path, 'r', encoding='utf-8') as key_f:
+#     chars = key_f.read()
+#     for idx, char in enumerate(chars):
+#         char_to_int[char] = idx
+#         int_to_char[idx] = char
+#     num_classes = len(chars) + 1
 
 
 def encode_labels(labels):
@@ -36,6 +31,7 @@ def encode_labels(labels):
         encoded_labeles.append(encode_label)
         lengths.append(len(label))
     return encoded_labeles, lengths
+
 
 def int64_feature(value):
     """
@@ -106,18 +102,12 @@ def write_features(tfrecords_path,
     return
 
 
-if __name__ == '__main__':
-
-    img_dir = '/data/data/crnn_train_data/images'
-
-    train_json_path = '/data/data/crnn_train_data/labels/train.json'
-    val_json_path = '/data/data/crnn_train_data/labels/val.json'
-
+def gen_tfrecords(img_dir, json_fpath, batch_size, save_dir, data_type):
     # write train tfrecords
-    print('Start writing training tf records')
+    print('Start generating tf records for %s' % data_type)
 
     # load json
-    with open(train_json_path, 'r', encoding='utf-8') as train_f:
+    with open(json_fpath, 'r', encoding='utf-8') as train_f:
         img_text_dict = json.load(train_f)
         # print(img_text_dict)
         img_fn_list = [img_fn for img_fn, text in img_text_dict.items()]
@@ -125,8 +115,8 @@ if __name__ == '__main__':
         text_list = [text for img_fn, text in img_text_dict.items()]
 
     train_images_nums = len(img_fn_list)
-    epoch_nums = int(math.ceil(train_images_nums / batch_size))
-    # epoch_nums = int(train_images_nums / batch_size)
+    # epoch_nums = int(math.ceil(train_images_nums / batch_size))
+    epoch_nums = int(train_images_nums / batch_size)
     for loop in tqdm.tqdm(range(epoch_nums)):
         # TODO: normalization
         loop_fn_list = img_fn_list[loop * batch_size: (loop + 1) * batch_size]
@@ -137,27 +127,58 @@ if __name__ == '__main__':
         train_images = np.asarray(train_images)
         train_labels = np.asarray(loop_text_list)
         train_imagenames = np.asarray(loop_fn_list)
-        print('train_image_shape: ', train_images[0].shape)
-        print("train_labels_0: ", train_labels[0])
-        print("train_imagenames: ", train_imagenames[0])
+        print('image_shape: ', train_images[0].shape)
+        print("labels_0: ", train_labels[0])
+        print("image_name_0: ", train_imagenames[0])
         # TODO: ch1 --> ch3
         train_images = [bytes(list(np.reshape(tmp, [256 * 32]))) for tmp in train_images]
 
         if loop * batch_size + batch_size > train_images_nums:
-            train_tfrecord_path = os.path.join(save_dir, 'train_feature_{:d}_{:d}.tfrecords'.format(
-                loop * batch_size, train_images_nums))
+            save_tfrecord_path = os.path.join(save_dir, '{:s}_feature_{:d}_{:d}.tfrecords'.format(
+                data_type, loop * batch_size, train_images_nums))
         else:
-            train_tfrecord_path = os.path.join(save_dir, 'train_feature_{:d}_{:d}.tfrecords'.format(
-                loop * batch_size, loop * batch_size + batch_size))
-        print('train_tfrecord_path: ', train_tfrecord_path)
+            save_tfrecord_path = os.path.join(save_dir, '{:s}_feature_{:d}_{:d}.tfrecords'.format(
+                data_type, loop * batch_size, loop * batch_size + batch_size))
+        print('%s_tfrecord_path: ' % data_type, save_tfrecord_path)
 
-        write_features(tfrecords_path=train_tfrecord_path,
+        write_features(tfrecords_path=save_tfrecord_path,
                        labels=train_labels,
                        images=train_images,
                        imagenames=train_imagenames)
 
 
-    #-----------------------------------------------------------------------------------
+def main():
+    img_dir = '/data/data/crnn_train_data/images'
+    train_json_path = '/data/data/crnn_train_data/labels/train.json'
+    val_json_path = '/data/data/crnn_train_data/labels/val.json'
+    batch_size = 8
+    save_dir = '/data/data/crnn_tfrecords'
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+    # train_data
+    gen_tfrecords(img_dir=img_dir,
+                  json_fpath=train_json_path,
+                  batch_size=batch_size,
+                  save_dir=save_dir,
+                  data_type='train')
+    # val_data
+    gen_tfrecords(img_dir=img_dir,
+                  json_fpath=val_json_path,
+                  batch_size=batch_size,
+                  save_dir=save_dir,
+                  data_type='val')
+    # test_data
+    gen_tfrecords(img_dir=img_dir,
+                  json_fpath=val_json_path,
+                  batch_size=batch_size,
+                  save_dir=save_dir,
+                  data_type='test')
+
+
+if __name__ == '__main__':
+    main()
+
+    # -----------------------------------------------------------------------------------
     '''
     # write train tfrecords
     print('Start writing validation tf records')
@@ -202,6 +223,3 @@ if __name__ == '__main__':
                        images=val_images,
                        imagenames=val_imagenames)
     '''
-
-
-
