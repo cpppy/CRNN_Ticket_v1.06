@@ -75,17 +75,21 @@ def get_shadownet_fn(num_gpus, variable_strategy, num_workers):
     return my_model_fn
 
 
-def my_model_fn(num_gpus, run_config):
+def my_model_fn(num_gpus):
     variable_strategy = 'CPU'
     model_fn = get_shadownet_fn(num_gpus,
                                 variable_strategy,
-                                run_config.num_worker_replicas or 1)
+                                1)
 
     return model_fn
 
 
 def main():
-    model_fn = my_model_fn(num_gpus=0, run_config=None)
+    model_fn = my_model_fn(num_gpus=0)
+    estimator = tf.estimator.Estimator(
+        model_fn=my_model_fn(0),
+        config=run_config,
+        params=hparams)
 
 
 if __name__ == '__main__':

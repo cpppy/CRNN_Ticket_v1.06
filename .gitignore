@@ -1,5 +1,6 @@
 .DS_Store
 .idea/
 data_prepare/__pycache__/
-
+crnn_model/__pycache__/
+global_configuration/__pycache__/
 

@@ -3,7 +3,7 @@ from unuse import tf_keras_Model as crnn_model
 
 from data_prepare.crnn_dataset import CrnnDataSet
 from data_prepare import load_tf_data
-
+import crnn_train
 
 def my_input_fn(data_dir='/data/data/crnn_tfrecords',
                 subset='Train',
@@ -51,12 +51,14 @@ def check_my_input_fn():
 
 
 def main():
-    train_model = crnn_model.get_Model(training=True)
-    train_model.compile(loss={'ctc': lambda y_true, y_pred: y_pred},
-                        optimizer=tf.keras.optimizers.Adadelta()
-                        )
+    # train_model = crnn_model.get_Model(training=True)
+    # train_model.compile(loss={'ctc': lambda y_true, y_pred: y_pred},
+    #                     optimizer=tf.keras.optimizers.Adadelta()
+    #                     )
+    #
+    # train_estimator = tf.keras.estimator.model_to_estimator(train_model, model_dir='/data/output/crnn_estimator_ckp')
 
-    train_estimator = tf.keras.estimator.model_to_estimator(train_model, model_dir='/data/output/crnn_estimator_ckp')
+    estimator =
 
     BATCH_SIZE = 16
     EPOCHS = 5
@@ -68,7 +70,7 @@ def main():
                                       start_delay_secs=3
                                       )
 
-    tf.estimator.train_and_evaluate(estimator=train_estimator,
+    tf.estimator.train_and_evaluate(estimator=estimator,
                                     train_spec=train_spec,
                                     eval_spec=eval_spec
                                     )

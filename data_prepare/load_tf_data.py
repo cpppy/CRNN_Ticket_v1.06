@@ -4,7 +4,6 @@ Implement some utils used to convert image and it's corresponding label into tfr
 import numpy as np
 import tensorflow as tf
 import os
-import tensorflow as tf
 import re
 from data_prepare import char_dict
 

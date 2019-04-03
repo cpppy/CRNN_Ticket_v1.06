@@ -5,6 +5,7 @@ import json
 import cv2
 import math
 import numpy as np
+from data_prepare import char_dict
 
 # # load char_dict
 # key_path = '/data/CRNN_Ticket_v1.06/key/keys.txt'
@@ -27,7 +28,7 @@ def encode_labels(labels):
     encoded_labeles = []
     lengths = []
     for label in labels:
-        encode_label = [char_to_int[char] for char in label]
+        encode_label = [char_dict.char_to_int[char] for char in label]
         encoded_labeles.append(encode_label)
         lengths.append(len(label))
     return encoded_labeles, lengths
