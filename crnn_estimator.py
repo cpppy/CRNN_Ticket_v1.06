@@ -24,7 +24,7 @@ def my_input_fn(data_dir='/data/data/crnn_tfrecords',
         feature_shards = tf.split(input_data, num_shards)
         label_shards = tf.sparse_split(sp_input=input_labels, num_split=num_shards, axis=0)
         # label_shards = tf.split(input_labels, num_shards)
-        return feature_shards, label_shards
+        return feature_shards[0], label_shards[0]
 
 
 def check_my_input_fn():
@@ -58,7 +58,7 @@ def main():
     #
     # train_estimator = tf.keras.estimator.model_to_estimator(train_model, model_dir='/data/output/crnn_estimator_ckp')
 
-    estimator =
+    estimator = None
 
     BATCH_SIZE = 16
     EPOCHS = 5

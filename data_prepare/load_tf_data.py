@@ -17,6 +17,7 @@ def sparse_tensor_to_str(spares_tensor: tf.SparseTensor):
     # values = np.array([self.__ord_2_index_map[str(tmp)] for tmp in values])
     dense_shape = spares_tensor.dense_shape
 
+
     number_lists = np.zeros(dense_shape, dtype=values.dtype)
     str_lists = []
     res = []

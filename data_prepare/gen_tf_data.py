@@ -124,7 +124,7 @@ def gen_tfrecords(img_dir, json_fpath, batch_size, save_dir, data_type):
         loop_path_list = img_path_list[loop * batch_size: (loop + 1) * batch_size]
         loop_text_list = text_list[loop * batch_size: (loop + 1) * batch_size]
 
-        train_images = [cv2.resize(cv2.imread(img_path, 0), (256, 32)) for img_path in loop_path_list]
+        train_images = [cv2.resize(cv2.imread(img_path), (100, 32)) for img_path in loop_path_list]
         train_images = np.asarray(train_images)
         train_labels = np.asarray(loop_text_list)
         train_imagenames = np.asarray(loop_fn_list)
@@ -132,7 +132,7 @@ def gen_tfrecords(img_dir, json_fpath, batch_size, save_dir, data_type):
         print("labels_0: ", train_labels[0])
         print("image_name_0: ", train_imagenames[0])
         # TODO: ch1 --> ch3
-        train_images = [bytes(list(np.reshape(tmp, [256 * 32]))) for tmp in train_images]
+        train_images = [bytes(list(np.reshape(tmp, [100 * 32 * 3]))) for tmp in train_images]
 
         if loop * batch_size + batch_size > train_images_nums:
             save_tfrecord_path = os.path.join(save_dir, '{:s}_feature_{:d}_{:d}.tfrecords'.format(

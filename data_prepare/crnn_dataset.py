@@ -37,7 +37,7 @@ class CrnnDataSet(object):
                 'labels': tf.VarLenFeature(tf.int64),
             })
         images = tf.decode_raw(features['images'], tf.uint8)
-        images = tf.reshape(images, [256, 32, 1])
+        images = tf.reshape(images, [32, 100, 3])
         labels = features['labels']
         labels = tf.cast(labels, tf.int32)
         return images, labels
