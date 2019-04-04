@@ -67,15 +67,15 @@ def get_shadownet_fn(num_gpus, variable_strategy, num_workers):
 
         if (mode == tf.estimator.ModeKeys.TRAIN):
             global_step = tf.train.get_global_step()
-            starter_learning_rate = params.learning_rate
-            learning_rate = tf.train.exponential_decay(starter_learning_rate,
-                                                       global_step,
-                                                       params.decay_steps,
-                                                       params.decay_rate)
+            # starter_learning_rate = params.learning_rate
+            # learning_rate = tf.train.exponential_decay(starter_learning_rate,
+            #                                            global_step,
+            #                                            params.decay_steps,
+            #                                            params.decay_rate)
             # TODO: optimizer
-            optimizer = tf.train.AdadeltaOptimizer(learning_rate=learning_rate).minimize(loss, global_step=global_step)
+            optimizer = tf.train.AdadeltaOptimizer().minimize(loss, global_step=global_step)
             # log define
-            tensors_to_log = {'global_step': global_step, 'lr': learning_rate, 'loss': loss}
+            tensors_to_log = {'global_step': global_step, 'loss': loss}
             logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=1)
             train_hooks = [logging_hook]
             predictions = None
@@ -85,10 +85,18 @@ def get_shadownet_fn(num_gpus, variable_strategy, num_workers):
             optimizer = None
             train_hooks = None
         elif mode == tf.estimator.ModeKeys.PREDICT:
-            decoded, log_prob = tf.nn.ctc_beam_search_decoder(preds,
-                                                              seq_len * np.ones(params.batch_size),  # TODO
-                                                              merge_repeated=False)
-            predictions = decoded
+            # bs = features.get_shape
+            # decoded, log_prob = tf.nn.ctc_beam_search_decoder(preds,
+            #                                                   seq_len * np.ones(1),  # TODO
+            #                                                   merge_repeated=False)
+            decoded, log_prob = tf.nn.ctc_greedy_decoder(preds,
+                                                         seq_len * np.ones(1),  # TODO
+                                                         merge_repeated=False)
+            # predictions = tf.sparse_to_dense(tf.to_int32(decoded[0].indices),
+            #                                  tf.to_int32(decoded[0].dense_shape),
+            #                                  tf.to_int32(decoded[0].values),
+            #                                  name="output")
+            predictions = tf.sparse.to_dense(sp_input=decoded[0], name='output')
             loss = None
             optimizer = None
             train_hooks = None
@@ -178,7 +186,10 @@ def main():
         intra_op_parallelism_threads=0,
         gpu_options=tf.GPUOptions(force_gpu_compatible=False))
     # sess_config.gpu_options.per_process_gpu_memory_fraction=0.4
-    run_config = tf.contrib.learn.RunConfig(session_config=sess_config, model_dir='./run_output')
+    run_config = tf.estimator.RunConfig(session_config=sess_config,
+                                        save_checkpoints_steps=100,
+                                        keep_checkpoint_max=3,
+                                        model_dir='./run_output')
 
     # model_fn = my_model_fn(num_gpus=0)
     _hparams = hparams.HParams()
@@ -190,7 +201,7 @@ def main():
                                   variable_strategy,
                                   1),
         config=run_config,
-        params=_hparams)
+        params=_hparams, )
 
     BATCH_SIZE = _hparams.batch_size  # 16
     EPOCHS = 5
@@ -201,7 +212,7 @@ def main():
 
     eval_spec = tf.estimator.EvalSpec(input_fn=lambda: crnn_estimator.my_input_fn(batch_size=BATCH_SIZE),
                                       steps=1,
-                                      start_delay_secs=3)
+                                      start_delay_secs=1)
 
     tf.estimator.train_and_evaluate(estimator,
                                     train_spec,
@@ -212,8 +223,12 @@ def main():
     predictions = estimator.predict(input_fn=lambda: crnn_estimator.my_input_fn(batch_size=1),
                                     yield_single_examples=True)
 
-    pred_result = load_tf_data.sparse_tensor_to_str(next(predictions))
-    print(pred_result)
+    # pred_result = load_tf_data.sparse_tensor_to_str(next(predictions))
+    pred_res_num = next(predictions)
+    print('pred_res_num: ', pred_res_num)
+    int_to_char = load_tf_data.char_dict.int_to_char
+    pred_res_str = ''.join([int_to_char[int] for int in pred_res_num])
+    print('prediction: ', pred_res_str)
 
     # result = load_tf_data.sparse_tensor_to_str(next(predictions))
     # print(result)
@@ -225,7 +240,7 @@ def main():
     # for row in curr_pred:
     #     arr = row[0]
     #     print('arr: ', arr)
-        # pred_result += int_to_char[np.argmax(arr)]
+    # pred_result += int_to_char[np.argmax(arr)]
     # print(pred_result)
 
     # for i in range(2000):
