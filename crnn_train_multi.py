@@ -7,12 +7,11 @@ import crnn_estimator
 import hparams
 from data_prepare import char_dict, load_tf_data
 
-# from log_utils import log_util
-#
-# logger = log_util.init_logger()
 import logging
+import json
 
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
+logging.getLogger().setLevel(logging.INFO)
 
 
 def crnn_net(is_training, feature, label, batch_size, l_size):
@@ -112,68 +111,6 @@ def my_model_fn(features, labels, mode, params):
                                       )
 
 
-'''
-def get_shadownet_fn(num_gpus, variable_strategy, num_workers):
-    def my_model_fn(features, labels, mode, params):
-        is_training = (mode == tf.estimator.ModeKeys.TRAIN)
-        loss, gradvars, preds, tensor_dict, seq_len = crnn_net(
-            is_training, features, labels, params.batch_size, params.l_size)
-
-        # if (mode == tf.estimator.ModeKeys.TRAIN or
-        #         mode == tf.estimator.ModeKeys.EVAL):
-        #     loss = ...
-        # else:
-        #     loss = None
-        # if mode == tf.estimator.ModeKeys.TRAIN:
-        #     train_op = ...
-        # else:
-        #     train_op = None
-        # if mode == tf.estimator.ModeKeys.PREDICT:
-        #     predictions = ...
-        # else:
-        #     predictions = None
-        # return tf.estimator.EstimatorSpec(
-        #     mode=mode,
-        #     predictions=predictions,
-        #     loss=loss,
-        #     train_op=train_op)
-
-        global_step = tf.train.get_global_step()
-        starter_learning_rate = params.learning_rate
-        learning_rate = tf.train.exponential_decay(starter_learning_rate,
-                                                   global_step,
-                                                   params.decay_steps,
-                                                   params.decay_rate)
-        # TODO: optimizer
-        # decoded, log_prob = tf.nn.ctc_beam_search_decoder(preds,
-        #                                                   seq_len * np.ones(params.batch_size),  # TODO
-        #                                                   merge_repeated=False)
-        optimizer = tf.train.AdadeltaOptimizer(learning_rate=learning_rate).minimize(loss, global_step=global_step)
-        # log define
-        tensors_to_log = {'global_step': global_step, 'lr': learning_rate, 'loss': loss}
-        logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=1)
-        train_hooks = [logging_hook]
-
-        return tf.estimator.EstimatorSpec(mode=mode,
-                                          loss=loss,
-                                          train_op=optimizer,
-                                          training_hooks=train_hooks
-                                          )
-
-    return my_model_fn
-'''
-
-'''
-def my_model_fn(num_gpus):
-    variable_strategy = 'CPU'
-    model_fn = get_shadownet_fn(num_gpus,
-                                variable_strategy,
-                                1)
-
-    return model_fn
-'''
-
-
 def main():
     # Session configuration.
     sess_config = tf.ConfigProto(
@@ -183,9 +120,9 @@ def main():
         gpu_options=tf.GPUOptions(force_gpu_compatible=False))
     # sess_config.gpu_options.per_process_gpu_memory_fraction=0.4
     run_config = tf.estimator.RunConfig(session_config=sess_config,
-                                        save_checkpoints_steps=100,
+                                        save_checkpoints_steps=10,
                                         keep_checkpoint_max=3,
-                                        model_dir='./run_output')
+                                        model_dir='/data/output/crnn_name_v1.0')
 
     # model_fn = my_model_fn(num_gpus=0)
     _hparams = hparams.HParams()
@@ -198,14 +135,18 @@ def main():
         params=_hparams, )
 
     BATCH_SIZE = _hparams.batch_size  # 16
-    EPOCHS = 5
+    # EPOCHS = 5
     STEPS = _hparams.steps  # 2000
 
-    train_spec = tf.estimator.TrainSpec(input_fn=lambda: crnn_estimator.my_input_fn(subset='train',
+    tfrecord_dir = '/data/data/tfrecords'
+
+    train_spec = tf.estimator.TrainSpec(input_fn=lambda: crnn_estimator.my_input_fn(data_dir=tfrecord_dir,
+                                                                                    subset='train',
                                                                                     batch_size=BATCH_SIZE),
                                         max_steps=STEPS)
 
-    eval_spec = tf.estimator.EvalSpec(input_fn=lambda: crnn_estimator.my_input_fn(subset='val',
+    eval_spec = tf.estimator.EvalSpec(input_fn=lambda: crnn_estimator.my_input_fn(data_dir=tfrecord_dir,
+                                                                                  subset='val',
                                                                                   batch_size=BATCH_SIZE),
                                       steps=1,
                                       start_delay_secs=1)
@@ -214,33 +155,76 @@ def main():
                                     train_spec,
                                     eval_spec)
 
-    print('ckp_path: ', estimator.latest_checkpoint())
+    # print('ckp_path: ', estimator.latest_checkpoint())
+    #
+    # predictions = estimator.predict(input_fn=lambda: crnn_estimator.my_input_fn(batch_size=1),
+    #                                 yield_single_examples=True)
+    #
+    # # pred_result = load_tf_data.sparse_tensor_to_str(next(predictions))
+    # pred_res_num = next(predictions)
+    # print('pred_res_num: ', pred_res_num)
+    # int_to_char = load_tf_data.char_dict.int_to_char
+    # pred_res_str = ''.join([int_to_char[int] for int in pred_res_num])
+    # print('prediction: ', pred_res_str)
 
-    predictions = estimator.predict(input_fn=lambda: crnn_estimator.my_input_fn(batch_size=1),
-                                    yield_single_examples=True)
 
-    # pred_result = load_tf_data.sparse_tensor_to_str(next(predictions))
-    pred_res_num = next(predictions)
-    print('pred_res_num: ', pred_res_num)
-    int_to_char = load_tf_data.char_dict.int_to_char
-    pred_res_str = ''.join([int_to_char[int] for int in pred_res_num])
-    print('prediction: ', pred_res_str)
+def train():
+    # pack tf_dist_conf
+    if 'TF_CONFIG' in os.environ:
+        tf_dist_conf = os.environ['TF_CONFIG']
+        conf = json.loads(tf_dist_conf)
+        if conf['task']['type'] == 'ps':
+            is_ps = True
+        else:
+            is_ps = False
 
-    # result = load_tf_data.sparse_tensor_to_str(next(predictions))
-    # print(result)
-    # next(p1)
-    # curr_pred = predictions.__next__()
-    # print(curr_pred.shape)
-    # int_to_char = char_dict.int_to_char
-    # pred_result = ''
-    # for row in curr_pred:
-    #     arr = row[0]
-    #     print('arr: ', arr)
-    # pred_result += int_to_char[np.argmax(arr)]
-    # print(pred_result)
+        if conf['task']['type'] == 'master':
+            conf['task']['type'] = 'chief'
 
-    # for i in range(2000):
-    #     print(predictions.__next__().shape)
+        conf['cluster']['chief'] = conf['cluster']['master']
+        del conf['cluster']['master']  # delete all conf setting about 'master', trans to 'chief'
+        print(conf)
+        os.environ['TF_CONFIG'] = json.dumps(conf)
+    else:
+        print('tf_config not exists in os.environ, task over.')
+        return
+
+    if is_ps:
+        distribution = tf.distribute.experimental.ParameterServerStrategy()
+    else:
+        distribution = tf.distribute.experimental.MultiWorkerMirroredStrategy()
+
+    run_config = tf.estimator.RunConfig(train_distribute=distribution,
+                                        save_checkpoints_steps=10,
+                                        keep_checkpoint_max=3,
+                                        model_dir='/data/output/run_output')
+
+    # model_fn = my_model_fn(num_gpus=0)
+    _hparams = hparams.HParams()
+
+    variable_strategy = 'CPU'
+    num_gpus = 0
+    estimator = tf.estimator.Estimator(
+        model_fn=get_shadownet_fn(num_gpus,
+                                  variable_strategy,
+                                  1),
+        config=run_config,
+        params=_hparams, )
+
+    BATCH_SIZE = _hparams.batch_size  # 16
+    # EPOCHS = 5
+    STEPS = _hparams.steps  # 2000
+
+    train_spec = tf.estimator.TrainSpec(input_fn=lambda: crnn_estimator.my_input_fn(batch_size=BATCH_SIZE),
+                                        max_steps=STEPS)
+
+    eval_spec = tf.estimator.EvalSpec(input_fn=lambda: crnn_estimator.my_input_fn(batch_size=BATCH_SIZE),
+                                      steps=1,
+                                      start_delay_secs=1)
+
+    tf.estimator.train_and_evaluate(estimator,
+                                    train_spec,
+                                    eval_spec)
 
 
 if __name__ == '__main__':

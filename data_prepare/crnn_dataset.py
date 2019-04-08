@@ -17,6 +17,7 @@ class CrnnDataSet(object):
             re_patten = r'^train_feature_\d{0,15}_\d{0,15}\.tfrecords\Z'
         elif self.subset.lower() == 'val':
             re_patten = r'^val_feature_\d{0,15}_\d{0,15}\.tfrecords\Z'
+            # re_patten = r'^validation_feature_\d{0,15}_\d{0,15}\.tfrecords\Z'
         elif self.subset.lower() == 'test':
             re_patten = r'^test_feature_\d{0,15}_\d{0,15}\.tfrecords\Z'
         else:

@@ -149,6 +149,7 @@ def gen_tfrecords(img_dir, json_fpath, batch_size, save_dir, data_type):
 
 
 def main():
+
     img_dir = '/data/data/crnn_train_data/images'
     train_json_path = '/data/data/crnn_train_data/labels/train.json'
     val_json_path = '/data/data/crnn_train_data/labels/val.json'
@@ -169,11 +170,11 @@ def main():
                   save_dir=save_dir,
                   data_type='val')
     # test_data
-    gen_tfrecords(img_dir=img_dir,
-                  json_fpath=val_json_path,
-                  batch_size=batch_size,
-                  save_dir=save_dir,
-                  data_type='test')
+    # gen_tfrecords(img_dir=img_dir,
+    #               json_fpath=val_json_path,
+    #               batch_size=batch_size,
+    #               save_dir=save_dir,
+    #               data_type='test')
 
 
 if __name__ == '__main__':
